@@ -1,4 +1,4 @@
-import os, shutil, m3u8, cloudscraper
+import os, shutil, math, m3u8, cloudscraper
 from urllib.parse import urljoin
 
 
@@ -51,7 +51,8 @@ class m3u8downloader:
 		for segment_url in segment_url_list:
 			file_name = 'segment-%s.ts' % i
 			path = '%s/%s' % (path_dir, file_name)
-			print('[process]: %s/%s' % (i, l))
+			percent_ =  math.ceil(i/l*100)
+			print(f'[process]: {i}/{l} ~ {percent_}%')
 			print('[download]:', segment_url)
 			print('[target]:', path)
 			print()
@@ -67,8 +68,8 @@ class m3u8downloader:
 	def convert(self, video_name: str, path: str, keep_cache: bool = False):
 		video_name = '"' + video_name + '"' # wrap video name with quotes to allow name with space
 		self.checkdir(path)
-		vcache = os.path.abspath(path + '/vcache')
-		os.chdir(vcache)
+		vcache_dir = path + '/vcache'
+		os.chdir(vcache_dir)
 		f = open('vcache.txt', 'w')
 		i=1
 		while True:
