@@ -65,7 +65,7 @@ class m3u8downloader:
 			i += 1
 
 
-	def convert(self, video_name: str, path: str, keep_cache: bool = False):
+	def convert(self, video_name: str, path: str = '.', keep_cache: bool = False):
 		video_name = '"' + video_name + '"' # wrap video name with quotes to allow name with space
 		self.checkdir(path)
 		vcache_dir = path + '/vcache'
