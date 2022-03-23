@@ -18,18 +18,37 @@ class m3u8downloader:
 			os.mkdir(path_dir)
 
 
-	def get_segments_list(self, m3u8_url: str, base_url: str = None):
+	def get_segments_list(self, m3u8_url: str, base_url: str = None, q = None):
 		base_url = m3u8_url[:(m3u8_url.rfind('/')+1)]
 		m3u8_obj = m3u8.loads(self.get_context(m3u8_url))
-		bandwidth_max=0
-		m3u8_link = ''
+		h = list()
+		m3u8_links = dict()
+		count=0
 		if m3u8_obj.is_variant:
+			print("Enter to skip and use the highest quality variant")
+			print("Choose a variant to download: ")
 			for playlist in m3u8_obj.playlists:
-				bandwidth = playlist.stream_info.bandwidth
-				if bandwidth > bandwidth_max: # select variant with highest bandwidth ~ highest resolution
-					bandwidth_max = bandwidth
-					m3u8_link = playlist.uri
-			return self.get_segments_list(urljoin(base_url, m3u8_link), base_url) 
+				weight, height = playlist.stream_info.resolution
+				h.append(height)
+				m3u8_links[height] = playlist.uri
+				print(f'{count}. {weight}x{height} ~ {height}p')
+				count+=1
+			if q:
+				if q in h:
+					print(h)
+					choice = h.index(q)
+					print(choice)
+				elif q == -1:
+					choice = ''
+				else:
+					raise ValueError
+			else:
+				choice = input("Your choice: ")
+			if not choice:
+				m3u8_link = m3u8_links[max(h)]
+			else:
+				m3u8_link = m3u8_links.get(h[int(choice)])
+			return self.get_segments_list(urljoin(base_url, m3u8_link), base_url)
 		segment_list = m3u8_obj.files
 		for i in range(len(segment_list)):
 			segment = segment_list[i]
@@ -38,12 +57,13 @@ class m3u8downloader:
 		return segment_list
 
 
-	def download_segment(self, m3u8_url: str, download_dir: str = '.', _ishtz: bool = False):
+	def download_segment(self, m3u8_url: str, download_dir: str = '.', _ishtz: bool = False, quality = None):
+		# quality argument used for automating downloads without asking quality
+		# default is None, use -1 value for highest quality
 		path_dir = download_dir + '/vcache'
 		self.checkdir(download_dir)
 		print('Getting segments...')
-		segment_url_list = self.get_segments_list(m3u8_url)
-
+		segment_url_list = self.get_segments_list(m3u8_url, q=quality) 
 		scraper = cloudscraper.create_scraper() # instance for download segments
 
 		i = 1
