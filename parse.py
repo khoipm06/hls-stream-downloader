@@ -1,40 +1,47 @@
-import os, json, cloudscraper
+import os
+import cloudscraper
+
 from dl import m3u8downloader
 from bs4 import BeautifulSoup
 
 def parse_url(link):
 	scraper = cloudscraper.create_scraper()
 	r = scraper.get(link)
-	soup = BeautifulSoup(r.text, features='lxml')
-	attribute = soup.select_one('iframe#player').attrs # get player attributes
-	url = attribute.get('src')
-	title = attribute.get('title')
-	spl = 'videoplayback'
-	if spl in url:
-		# get m3u8 url for older video < 5/2022
-		player_url = 'https://apix.gooqlevideo.com/player' + url.split(spl)[1] # get the player url
-		r = scraper.get(player_url)
-		m3u8_url = json.loads(r.text)['manifest'] # parse m3u8 master url from json
-	else:
-		# get m3u8 url for newer video > 5/2022
-		url = url.split('url=')[-1] # remove iframe prefix
-		if url.endswith('mp4'):
-			print("Downloading...")
-			r = scraper.get(url)
-			with open(f'{title}.mp4', 'wb') as f:
-				f.write(r.content)
-			exit()
-		resolution = url.split('/')[-2]
-		m3u8_url = url.removesuffix(resolution + '/media.m3u8') + 'master.m3u8' # get m3u8 url
+	soup = BeautifulSoup(r.content, features='lxml')
+	src = soup.find('iframe').get('src') # get player url
+	video_id = src[src.rfind('/')+1:]
+	api_url = 'https://ipa.sonar-cdn.com/play/' + video_id
+	json_obj = scraper.get(api_url).json()
+	title = json_obj['title']
+	m3u8_url = json_obj['hls'][0]['url']
+
+	# spl = 'videoplayback'
+	# if spl in url:
+	# 	# get m3u8 url for older video < 5/2022
+	# 	player_url = 'https://apix.gooqlevideo.com/player' + url.split(spl)[1] # get the player url
+	# 	r = scraper.get(player_url)
+	# 	m3u8_url = json.loads(r.text)['manifest'] # parse m3u8 master url from json
+	# else:
+	# 	# get m3u8 url for newer video > 5/2022
+	# 	url = url.split('url=')[-1] # remove iframe prefix
+	# 	if url.endswith('mp4'):
+	# 		print("Downloading...")
+	# 		r = scraper.get(url)
+	# 		with open(f'{title}.mp4', 'wb') as f:
+	# 			f.write(r.content)
+	# 		exit()
+	# 	resolution = url.split('/')[-2]
+	# 	m3u8_url = url.removesuffix(resolution + '/media.m3u8') + 'master.m3u8' # get m3u8 url
+ 
 	return title, m3u8_url
 
 
-def download(link: str, path: str, _ishtz: bool = True, keep_cache: bool = False , quality = None):
+def download(link: str, path: str, keep_cache: bool = False , quality = None):
 	try:
 		dl = m3u8downloader() # initialize the downloader
 		title, m3u8_url = parse_url(link)
-		dl.download_segment(m3u8_url, path, _ishtz=_ishtz, quality=quality) # download the segments
-		dl.convert(title + '.mp4', path, keep_cache=keep_cache) #concatenate the segments and convert to mp4 by ffmpeg
+		dl.download_segment(m3u8_url, path, quality=quality) # download the segments
+		dl.convert(title + '.mp4', path, keep_cache=keep_cache) # concatenate the segments and convert to mp4 by ffmpeg
 	except Exception as e:
 		print('An error occurred:', e)
 
@@ -55,4 +62,5 @@ if __name__=='__main__':
 	else:
 		link = input('Enter link: ')
 		save_dir = path()
+		save_dir = '.'
 		download(link, save_dir)
