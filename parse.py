@@ -12,9 +12,13 @@ def parse_url(link):
 	video_id = src[src.rfind('/')+1:]
 	api_url = 'https://ipa.sonar-cdn.com/play/' + video_id
 	json_obj = scraper.get(api_url).json()
-	title = json_obj['title']
+	title: str = json_obj['title'] # explicit declaring var as string
 	m3u8_url = json_obj['hls'][0]['url']
+	# post-processing title
+	if title.endswith('.mp4'):
+		title = title.removesuffix('.mp4')
 
+	# OLD METHOD
 	# spl = 'videoplayback'
 	# if spl in url:
 	# 	# get m3u8 url for older video < 5/2022
@@ -57,10 +61,9 @@ if __name__=='__main__':
 	if(os.path.exists(filename)):
 		save_dir = path()
 		with open(filename) as f:
-			for link in f:
-				download(link, save_dir, quality = -1)
+			for link in f.readlines():
+				download(link.strip('\n'), save_dir, quality = -1)
 	else:
-		link = input('Enter link: ')
+		link = input('Enter video url: ')
 		save_dir = path()
-		save_dir = '.'
 		download(link, save_dir)
