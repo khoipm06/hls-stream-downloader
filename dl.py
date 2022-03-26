@@ -26,25 +26,26 @@ class m3u8downloader:
 		"""
 		base_url = m3u8_url[:(m3u8_url.rfind('/')+1)]
 		m3u8_obj = m3u8.loads(self.get_context(m3u8_url))
-		h = list()
-		m3u8_links = dict()
+		h, choice_list, m3u8_links = list(), str(), dict()
 		if m3u8_obj.is_variant:
-			print("Enter to skip and use the highest quality variant")
-			print("Choose a variant to download: ")
 			for count, playlist in enumerate(m3u8_obj.playlists):
 				weight, height = playlist.stream_info.resolution
-				h.append(height)
 				m3u8_links[height] = playlist.uri
-				print(f'{count}. {weight}x{height} ~ {height}p')
+				h.append(height)
+				choice_list += f'{count}. {weight}x{height} ~ {height}p\n'
 			if q:
 				if q in h:
 					choice = h.index(q)
 				elif q == -1:
 					choice = ''
 				else:
-					raise ValueError("Invalid quality option provided.")
+					raise ValueError("Invalid quality option provided")
 			else:
+				print("Enter to skip and use the highest quality variant")
+				print("Choose a variant to download: ")
+				print(choice_list, end='')
 				choice = input("Your choice: ")
+				print(f'Started downloading {h[int(choice)]}p video')
 			if not choice:
 				m3u8_link = m3u8_links[max(h)]
 			else:
@@ -69,7 +70,7 @@ class m3u8downloader:
 		Use in case some stream use .html, .png, .jpg,... extension instead of .ts to exploit CDN caching feature. Default is False.
 		:return: None
 		"""
-		cache_dir = os.path.join(download_dir, 'vcache')
+		cache_dir = os.path.abspath(os.path.join(download_dir, 'vcache'))
 		os.makedirs(cache_dir ,exist_ok=True)
 		print('Getting segments...')
 		segment_url_list = self.get_segments_list(m3u8_url, q=quality)
@@ -98,26 +99,30 @@ class m3u8downloader:
 		:param keep_cache: An optional boolean indicating whether to keep the downloaded segments in the cache folder after conversion. Default is False.
 		:return: None
 		"""
-		os.makedirs(path ,exist_ok=True)
-		vcache_dir = os.path.join(path, 'vcache')
-		os.chdir(vcache_dir)
-		with open('vcache.txt', 'w') as lf:
+		vcache_dir = os.path.abspath(os.path.join(path, 'vcache'))
+		vcache_file = os.path.join(vcache_dir, 'vcache.txt')
+		if not os.path.exists(vcache_dir):
+			print('Video cache directory should be exist. Try download_segment method to create it.')
+		with open(vcache_file, 'w') as lf:
 			i = 0
-			for i in range(len(os.listdir())):
-				file_name =  f'segment-{i}.ts'
-				if os.path.exists(file_name) and os.path.isfile(file_name):
-					lf.write(f'file {file_name}\n') # write segments list to vcache.txt
+			for i in range(len(os.listdir(vcache_dir))):
+				file_path =  os.path.join(vcache_dir, f'segment-{i}.ts')
+				if os.path.exists(file_path) and os.path.isfile(file_path):
+					lf.write(f'file {file_path}\n') # write segments list to vcache.txt
 				i += 1
 
 		try:
 			# combine all segments to mp4 file
-			subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", "vcache.txt", "-c", "copy", f"../{video_name}"], check=True)
+			subprocess.run(["ffmpeg", "-hide_banner", "-y", "-f", "concat", "-safe", "0", "-i", vcache_file, "-c", "copy", os.path.abspath(os.path.join(path, video_name))], check=True)
 		except ChildProcessError:
 			print("Failed to execute ffmpeg command")
 		if keep_cache:
-			list_dir = os.listdir('.')
-			size = sum(os.path.getsize(f) for f in list_dir if os.path.isfile(f))
+			list_dir = os.listdir(vcache_dir)
+			size = 0
+			for file in list_dir:
+				file = os.path.join(vcache_dir, file)
+				if os.path.isfile(file):
+					size += os.path.getsize(file)
 			print("vcache folder has %i files with %i MB you may need to remove!" % (len(list_dir), size/(1024*1024)))
 		else:
-			os.chdir('..')
-			shutil.rmtree('vcache') # clean left overs
+			shutil.rmtree(vcache_dir) # clean left overs
